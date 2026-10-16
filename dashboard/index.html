@@ -1,0 +1,539 @@
+<title>Bob's Day Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a departures-board header strip over a two-column board — today's timeline left, travel + inbox + to-dos right; one column on phones. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #16212e;
+  --muted: #5d6b7a;
+  --line: #d5dce4;
+  --accent: #c2410c;        /* runway orange */
+  --accent-soft: #fbe7dc;
+  --sky: #1d4e89;           /* travel blue */
+  --sky-soft: #e1ebf7;
+  --ok: #2f7d4f;
+  --warn: #a76a00;
+  --bad: #b42318;
+  --board: #1b2632;         /* header strip */
+  --board-ink: #f2f5f8;
+  --board-dim: #9fb0c2;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161d; --surface: #18212b; --ink: #e6ecf2; --muted: #93a2b2; --line: #2a3644;
+    --accent: #f08a4b; --accent-soft: #3a2418; --sky: #7fb2ec; --sky-soft: #1a2c42;
+    --ok: #5cc48a; --warn: #e0a83a; --bad: #f2776b;
+    --board: #0a0f14; --board-ink: #f2f5f8; --board-dim: #8597aa;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161d; --surface: #18212b; --ink: #e6ecf2; --muted: #93a2b2; --line: #2a3644;
+  --accent: #f08a4b; --accent-soft: #3a2418; --sky: #7fb2ec; --sky-soft: #1a2c42;
+  --ok: #5cc48a; --warn: #e0a83a; --bad: #f2776b;
+  --board: #0a0f14; --board-ink: #f2f5f8; --board-dim: #8597aa;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--board); }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Header strip */
+.strip { background: var(--board); color: var(--board-ink); }
+.strip .wrap { padding-block: 22px 20px; display: grid; gap: 18px; grid-template-columns: 1fr auto; align-items: end; }
+.date-eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--board-dim); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(30px, 5vw, 44px); line-height: 1.05; margin: 4px 0 0; text-wrap: balance; letter-spacing: .01em; }
+.flaps { display: flex; gap: 10px; flex-wrap: wrap; }
+.flap { background: #ffffff10; border: 1px solid #ffffff1f; border-radius: 6px; padding: 8px 12px; min-width: 150px; }
+.flap .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--board-dim); }
+.flap .v { font-family: var(--f-display); font-size: 22px; font-weight: 600; line-height: 1.15; }
+.flap .s { font-size: 12.5px; color: var(--board-dim); }
+@media (max-width: 720px) { .strip .wrap { grid-template-columns: 1fr; } .flap { flex: 1 1 140px; min-width: 0; } }
+
+/* Board */
+main.wrap { padding-block: 22px 40px; display: grid; gap: 22px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { main.wrap { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 22px; min-width: 0; }
+section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 21px; letter-spacing: .02em; text-transform: uppercase; margin: 0; }
+.meta { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.sec-body { padding: 12px 18px 16px; }
+.note { color: var(--muted); font-size: 14px; }
+.note.err { color: var(--bad); }
+.linkbtn { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.linkbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Timeline */
+.allday { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip { font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--sky-soft); color: var(--sky); font-weight: 500; }
+.chip.orange { background: var(--accent-soft); color: var(--accent); }
+.tl { list-style: none; margin: 0; padding: 0; }
+.tl li { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 9px 0; border-top: 1px dashed var(--line); align-items: baseline; }
+.tl li:first-child { border-top: 0; }
+.tl .t { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.tl .ttl { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.tl .sub { display: block; font-size: 12.5px; color: var(--muted); font-weight: 400; }
+.tl li.past .ttl, .tl li.past .t { color: var(--muted); }
+.tl li.past .ttl { text-decoration: line-through; text-decoration-color: var(--line); }
+.tl li.now { background: var(--accent-soft); margin: 0 -18px; padding-left: 18px; padding-right: 18px; border-top-color: transparent; }
+.tl li.now .t { color: var(--accent); font-weight: 500; }
+.nowline { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: center; padding: 2px 0; }
+.nowline span:first-child { font-family: var(--f-mono); font-size: 11px; color: var(--accent); letter-spacing: .08em; }
+.nowline span:last-child { height: 2px; background: var(--accent); border-radius: 2px; }
+
+/* Week */
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day { border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; min-width: 0; }
+.day .dn { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.day .dd { font-family: var(--f-display); font-size: 22px; font-weight: 600; line-height: 1.1; }
+.day .cnt { font-size: 12px; color: var(--muted); }
+.day.trip { border-color: var(--sky); background: var(--sky-soft); }
+.day.trip .cnt { color: var(--sky); font-weight: 500; }
+@media (max-width: 520px) { .week { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.weeklist { margin-top: 12px; display: grid; gap: 4px; font-size: 13.5px; }
+.weeklist div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; }
+.weeklist .w { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Travel */
+.trip { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.trip + .trip { margin-top: 12px; }
+.trip-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; background: var(--sky-soft); }
+.trip-dest { font-family: var(--f-display); font-size: 22px; font-weight: 600; color: var(--sky); line-height: 1.1; }
+.trip-dates { font-size: 13px; color: var(--muted); }
+.countdown { font-family: var(--f-mono); font-size: 12px; background: var(--surface); color: var(--sky); border-radius: 999px; padding: 3px 10px; white-space: nowrap; font-weight: 500; }
+.leg { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: center; }
+.leg .code { font-family: var(--f-mono); font-size: 15px; font-weight: 500; letter-spacing: .04em; }
+.leg .what { min-width: 0; overflow-wrap: anywhere; }
+.leg .what small { display: block; color: var(--muted); font-size: 12.5px; }
+.leg .when { font-family: var(--f-mono); font-size: 12.5px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.subhead { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 16px 0 6px; }
+.mail { list-style: none; margin: 0; padding: 0; }
+.mail li { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--line); align-items: start; }
+.mail li:first-child { border-top: 0; }
+.mail .subj { font-weight: 500; min-width: 0; overflow-wrap: anywhere; text-decoration: none; }
+.mail .subj:hover { color: var(--accent); text-decoration: underline; }
+.mail .from { display: block; font-size: 12.5px; color: var(--muted); }
+.mail .side { display: flex; gap: 6px; align-items: center; }
+.mail .age { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: .05em; }
+.tag.cancel { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+.tag.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.addbtn { border: 1px solid var(--line); background: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 16px; line-height: 1; }
+.addbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* To-dos */
+.progress { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bar { flex: 1; height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--ok); width: 0; transition: width .3s; }
+.progress .pct { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.todos { list-style: none; margin: 0; padding: 0; }
+.todos li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 0; }
+.todos input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--ok); }
+.todos label { min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
+.todos li.done label { color: var(--muted); text-decoration: line-through; }
+.todos .src { font-size: 11.5px; color: var(--muted); display: block; }
+.todos .x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; }
+.todos .x:hover { color: var(--bad); }
+form.add { display: flex; gap: 8px; margin-top: 10px; }
+form.add input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 6px; padding: 7px 10px; font: inherit; }
+form.add button { border: 0; background: var(--accent); color: #fff; border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; }
+.three { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 14px; }
+.three b { font-family: var(--f-display); font-size: 16px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); display: block; }
+
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<header class="strip">
+  <div class="wrap">
+    <div>
+      <div class="date-eyebrow" id="today-label">Today</div>
+      <h1 id="greeting">Good morning, Bobby</h1>
+    </div>
+    <div class="flaps">
+      <div class="flap"><div class="k">Next up</div><div class="v" id="next-v">—</div><div class="s" id="next-s">Loading your calendar</div></div>
+      <div class="flap"><div class="k">Next trip</div><div class="v" id="trip-v">—</div><div class="s" id="trip-s">Checking travel</div></div>
+      <div class="flap"><div class="k">To-dos done</div><div class="v" id="todo-v">0 / 0</div><div class="s" id="todo-s">Keep moving forward</div></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="col">
+    <section aria-labelledby="h-today">
+      <div class="sec-head"><h2 id="h-today">Today's schedule</h2><span class="meta" id="cal-meta">Google Calendar</span></div>
+      <div class="sec-body" id="today-body"><p class="note">Loading today's events…</p></div>
+    </section>
+
+    <section aria-labelledby="h-week">
+      <div class="sec-head"><h2 id="h-week">Next 7 days</h2><span class="meta">Travel days in blue</span></div>
+      <div class="sec-body" id="week-body"><p class="note">Loading the week…</p></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section aria-labelledby="h-todo">
+      <div class="sec-head"><h2 id="h-todo">My to-do list</h2><span class="meta" id="todo-meta">Saved for you</span></div>
+      <div class="sec-body">
+        <div class="three"><b>Today's top 3</b><span id="top3">Your first three open to-dos show here. Finish these and the day is a win.</span></div>
+        <div class="progress"><div class="bar"><span id="bar"></span></div><span class="pct" id="pct">0%</span></div>
+        <ul class="todos" id="todos"></ul>
+        <p class="note" id="todo-empty">Nothing on the list yet. Add one below, or tap + on an email to turn it into a to-do.</p>
+        <form class="add" id="add-form">
+          <label for="new-todo" class="sr" hidden>New to-do</label>
+          <input id="new-todo" placeholder="Add a to-do…" autocomplete="off" aria-label="New to-do">
+          <button type="submit">Add</button>
+        </form>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-travel">
+      <div class="sec-head"><h2 id="h-travel">Travel</h2><span class="meta" id="travel-meta">Calendar + Gmail</span></div>
+      <div class="sec-body" id="travel-body"><p class="note">Looking for upcoming flights and hotels…</p></div>
+    </section>
+
+    <section aria-labelledby="h-inbox">
+      <div class="sec-head"><h2 id="h-inbox">Inbox: needs you</h2><span class="meta" id="inbox-meta">Unread · Primary · 7 days</span></div>
+      <div class="sec-body" id="inbox-body"><p class="note">Loading unread email…</p></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const CAL = "Google Calendar", GMAIL = "Gmail";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const unent = (s) => { const t = document.createElement("textarea"); t.innerHTML = s ?? ""; return t.value; };
+  const pad = (n) => String(n).padStart(2, "0");
+  const localIso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+  const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const fmtTime = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const fmtDay = (d) => d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  const fmtStamp = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  const now = new Date();
+  const today0 = startOfDay(now);
+  $("today-label").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const h = now.getHours();
+  $("greeting").textContent = (h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening") + ", Bobby";
+
+  // ---------- Event helpers ----------
+  function evStart(e) {
+    if (e.start?.dateTime) return { d: new Date(e.start.dateTime), allDay: false };
+    if (e.start?.date) { const [y, m, dd] = e.start.date.slice(0, 10).split("-").map(Number); return { d: new Date(y, m - 1, dd), allDay: true }; }
+    return null;
+  }
+  function evEnd(e) {
+    if (e.end?.dateTime) return new Date(e.end.dateTime);
+    if (e.end?.date) { const [y, m, dd] = e.end.date.slice(0, 10).split("-").map(Number); return new Date(y, m - 1, dd); }
+    return null;
+  }
+  const TRAVEL_RE = /\b(flight|fly|airport|hotel|check[- ]?in|check[- ]?out|trip|travel|rental car|car rental|reservation|stay at)\b/i;
+  const isTravel = (e) => e.eventType === "FROM_GMAIL" || TRAVEL_RE.test(e.summary || "");
+
+  function errText(err, server) {
+    switch (err?.code) {
+      case "needs_reauth": return `${server} needs to be reconnected. Go to claude.ai Settings → Connectors and reconnect ${server}.`;
+      case "server_not_connected": case "selection_required": return `${server} isn't connected. Add it in claude.ai Settings → Connectors.`;
+      case "not_in_manifest": case "approval_required": case "consent_required": return `This page doesn't have permission to read ${server}. Allow it from the page's Permissions menu.`;
+      case "blocked_by_policy": return `Your organization blocks ${server} here.`;
+      case "server_unavailable": return `${server} didn't respond. It will try again shortly.`;
+      case "tool_error": return `${server} returned an error: ${err.message}`;
+      default: return `Couldn't load ${server} (${err?.code || "error"}).`;
+    }
+  }
+  const stamp = (res) => res?.cache?.storedAt ? `Updated ${fmtStamp(res.cache.storedAt)}` : `Updated ${fmtStamp(Date.now())}`;
+
+  // ---------- To-dos (db per-person, localStorage fallback) ----------
+  let todos = [];
+  let store = null; // { add, toggle, remove }
+  function renderTodos() {
+    const list = $("todos");
+    list.innerHTML = "";
+    const sorted = [...todos].sort((a, b) => (a.done - b.done) || (a.created - b.created));
+    for (const t of sorted) {
+      const li = document.createElement("li");
+      if (t.done) li.className = "done";
+      const id = "td-" + t.id;
+      li.innerHTML = `<input type="checkbox" id="${esc(id)}" ${t.done ? "checked" : ""}><label for="${esc(id)}">${esc(t.text)}${t.src ? `<span class="src">${esc(t.src)}</span>` : ""}</label><button class="x" aria-label="Remove">×</button>`;
+      li.querySelector("input").addEventListener("change", (ev) => store?.toggle(t, ev.target.checked));
+      li.querySelector(".x").addEventListener("click", () => store?.remove(t));
+      list.appendChild(li);
+    }
+    const done = todos.filter((t) => t.done).length, total = todos.length;
+    $("todo-empty").hidden = total > 0;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    $("bar").style.width = pct + "%";
+    $("pct").textContent = pct + "%";
+    $("todo-v").textContent = `${done} / ${total}`;
+    $("todo-s").textContent = total === 0 ? "Add your first to-do" : done === total ? "All done. Nice work." : `${total - done} left to go`;
+    const open = sorted.filter((t) => !t.done).slice(0, 3);
+    $("top3").textContent = open.length ? open.map((t, i) => `${i + 1}. ${t.text}`).join("   ") : "Your first three open to-dos show here. Finish these and the day is a win.";
+  }
+  function localStore() {
+    const KEY = "dayboard.todos";
+    try { todos = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { todos = []; }
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(todos)); } catch {} renderTodos(); };
+    $("todo-meta").textContent = "Saved in this browser";
+    return {
+      add(text, src) { todos.push({ id: Math.random().toString(36).slice(2), text, src: src || "", done: false, created: Date.now() }); save(); },
+      toggle(t, v) { t.done = v; t.doneAt = v ? Date.now() : null; save(); },
+      remove(t) { todos = todos.filter((x) => x !== t); save(); },
+    };
+  }
+  async function initTodos() {
+    store = localStore();
+    renderTodos();
+    try {
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      const uid = user ? await user.id() : null;
+      if (!db || !uid) return;
+      const col = db.collection("data/users/" + uid);
+      col.onSnapshot((snap) => {
+        todos = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((t) => t.text);
+        // Hide items finished before today so each morning starts clean.
+        todos = todos.filter((t) => !t.done || !t.doneAt || t.doneAt >= today0.getTime());
+        renderTodos();
+      }, () => { $("todo-meta").textContent = "Saved in this browser"; });
+      $("todo-meta").textContent = "Synced to your account";
+      store = {
+        add(text, src) { col.add({ text, src: src || "", done: false, created: Date.now() }).catch(() => {}); },
+        toggle(t, v) { col.doc(t.id).update({ done: v, doneAt: v ? Date.now() : null }).catch(() => {}); },
+        remove(t) { col.doc(t.id).delete().catch(() => {}); },
+      };
+    } catch { /* keep local store */ }
+  }
+  $("add-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = $("new-todo").value.trim();
+    if (!v) return;
+    store?.add(v);
+    $("new-todo").value = "";
+  });
+
+  // ---------- Calendar: today + week ----------
+  function renderToday(events) {
+    const end0 = addDays(today0, 1);
+    const todays = events.filter((e) => { const s = evStart(e); const en = evEnd(e); return s && s.d < end0 && (en ? en > today0 : s.d >= today0); });
+    const allDay = todays.filter((e) => evStart(e).allDay);
+    const timed = todays.filter((e) => !evStart(e).allDay).sort((a, b) => evStart(a).d - evStart(b).d);
+    let html = "";
+    if (allDay.length) html += `<div class="allday">${allDay.map((e) => `<span class="chip ${isTravel(e) ? "" : "orange"}">All day · ${esc(e.summary || "Busy")}</span>`).join("")}</div>`;
+    if (!timed.length) html += `<p class="note">No timed events today. Good day to work through the to-do list.</p>`;
+    else {
+      html += `<ol class="tl">`;
+      let placedNow = false;
+      for (const e of timed) {
+        const s = evStart(e).d, en = evEnd(e) || s;
+        const past = en <= now, current = s <= now && en > now;
+        if (!placedNow && !past && !current && s > now) { html += `<li class="nowline" aria-label="Now"><span>NOW ${esc(fmtTime(now))}</span><span></span></li>`; placedNow = true; }
+        if (current) placedNow = true;
+        const loc = e.location ? `<span class="sub">${esc(e.location)}</span>` : "";
+        const href = e.htmlLink ? ` href="${esc(e.htmlLink)}" target="_blank" rel="noopener"` : "";
+        html += `<li class="${past ? "past" : current ? "now" : ""}"><span class="t">${esc(fmtTime(s))}</span><span class="ttl"><a${href} style="text-decoration:none">${esc(e.summary || "Busy")}</a>${current ? ' <span class="chip orange">Now</span>' : ""}${loc}</span></li>`;
+      }
+      html += `</ol>`;
+    }
+    $("today-body").innerHTML = html;
+
+    const upcoming = timed.find((e) => evStart(e).d > now) || null;
+    if (upcoming) {
+      const s = evStart(upcoming).d, mins = Math.round((s - now) / 60000);
+      $("next-v").textContent = upcoming.summary || "Busy";
+      $("next-s").textContent = `${fmtTime(s)} · in ${mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + "m"}`;
+    } else {
+      $("next-v").textContent = "Open time";
+      $("next-s").textContent = "Nothing else scheduled today";
+    }
+  }
+  function renderWeek(events) {
+    const days = [];
+    for (let i = 1; i <= 7; i++) {
+      const d0 = addDays(today0, i), d1 = addDays(today0, i + 1);
+      const evs = events.filter((e) => { const s = evStart(e); const en = evEnd(e); return s && s.d < d1 && (en ? en > d0 : s.d >= d0); });
+      days.push({ d0, evs, travel: evs.some(isTravel) });
+    }
+    let html = `<div class="week">${days.map((x) => `<div class="day ${x.travel ? "trip" : ""}"><div class="dn">${esc(x.d0.toLocaleDateString([], { weekday: "short" }))}</div><div class="dd">${x.d0.getDate()}</div><div class="cnt">${x.travel ? "Travel" : x.evs.length ? x.evs.length + " event" + (x.evs.length > 1 ? "s" : "") : "Free"}</div></div>`).join("")}</div>`;
+    // Notable (non-routine) items: skip events that recur daily in your routine.
+    const notable = [];
+    for (const x of days) for (const e of x.evs) {
+      if (e.recurringEventId) continue;
+      const s = evStart(e); if (s.d < x.d0) continue;
+      notable.push({ s, e });
+    }
+    notable.sort((a, b) => a.s.d - b.s.d);
+    if (notable.length) html += `<div class="weeklist">${notable.slice(0, 8).map(({ s, e }) => `<div><span class="w">${esc(s.d.toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" }))}${s.allDay ? "" : " " + esc(fmtTime(s.d))}</span><span>${esc(e.summary || "Busy")}</span></div>`).join("")}</div>`;
+    else html += `<p class="note" style="margin-top:10px">Only your daily routine is on the calendar this week.</p>`;
+    $("week-body").innerHTML = html;
+  }
+
+  // ---------- Travel ----------
+  let travelEvents = null, travelMail = null, travelErr = { cal: null, mail: null };
+  function legCode(e) {
+    const loc = e.location || "";
+    const m = loc.match(/\b([A-Z]{3})\b/);
+    if (m) return m[1];
+    if (/hotel|marriott|inn|suites|stay/i.test(e.summary || "")) return "HTL";
+    if (/car|rental/i.test(e.summary || "")) return "CAR";
+    return "—";
+  }
+  function destOf(e) {
+    const m = (e.summary || "").match(/(?:flight|trip)\s+to\s+(.+?)(?:\s*\(|$)/i);
+    return m ? m[1].trim() : null;
+  }
+  function groupTrips(evs) {
+    const sorted = [...evs].sort((a, b) => evStart(a).d - evStart(b).d);
+    const trips = [];
+    for (const e of sorted) {
+      const s = evStart(e).d;
+      const last = trips[trips.length - 1];
+      if (last && s - last.end < 12 * 864e5) { last.legs.push(e); last.end = Math.max(last.end, (evEnd(e) || s).getTime()); }
+      else trips.push({ legs: [e], start: s.getTime(), end: (evEnd(e) || s).getTime() });
+    }
+    return trips;
+  }
+  function renderTravel() {
+    let html = "";
+    if (travelErr.cal) html += `<p class="note err">${esc(travelErr.cal)}</p>`;
+    else if (travelEvents === null) html += `<p class="note">Loading trips…</p>`;
+    else {
+      const trips = groupTrips(travelEvents);
+      if (!trips.length) html += `<p class="note">No upcoming trips on your calendar in the next 6 months.</p>`;
+      for (const t of trips.slice(0, 4)) {
+        const first = t.legs[0];
+        const dest = destOf(first) || first.location || first.summary || "Trip";
+        const days = Math.ceil((startOfDay(new Date(t.start)) - today0) / 864e5);
+        const cd = days <= 0 ? "Underway" : days === 1 ? "Tomorrow" : `In ${days} days`;
+        const range = fmtDay(new Date(t.start)) + (t.end - t.start > 864e5 ? " – " + fmtDay(new Date(t.end)) : "");
+        html += `<div class="trip"><div class="trip-head"><div><div class="trip-dest">${esc(dest)}</div><div class="trip-dates">${esc(range)}</div></div><span class="countdown">${esc(cd)}</span></div>`;
+        for (const e of t.legs) {
+          const s = evStart(e), en = evEnd(e);
+          const when = s.allDay ? fmtDay(s.d) : `${fmtDay(s.d)}<br>${esc(fmtTime(s.d))}${en ? " → " + esc(fmtTime(en)) : ""}`;
+          const href = e.htmlLink ? ` href="${esc(e.htmlLink)}" target="_blank" rel="noopener"` : "";
+          html += `<div class="leg"><span class="code">${esc(legCode(e))}</span><span class="what"><a${href} style="text-decoration:none">${esc(e.summary || "Travel")}</a>${e.location ? `<small>Departs ${esc(e.location)}</small>` : ""}</span><span class="when">${when}</span></div>`;
+        }
+        html += `</div>`;
+      }
+      if (trips.length) {
+        const t = trips[0], d = Math.ceil((startOfDay(new Date(t.start)) - today0) / 864e5);
+        $("trip-v").textContent = destOf(t.legs[0]) || t.legs[0].location || "Trip";
+        $("trip-s").textContent = d <= 0 ? "Underway" : `${fmtDay(new Date(t.start))} · ${d} day${d === 1 ? "" : "s"} away`;
+      } else { $("trip-v").textContent = "None booked"; $("trip-s").textContent = "Next 6 months"; }
+    }
+    html += `<div class="subhead">Recent booking emails</div>`;
+    if (travelErr.mail) html += `<p class="note err">${esc(travelErr.mail)}</p>`;
+    else if (travelMail === null) html += `<p class="note">Loading…</p>`;
+    else if (!travelMail.length) html += `<p class="note">No booking emails in the last 60 days.</p>`;
+    else html += `<ul class="mail">${travelMail.slice(0, 6).map(mailRow(true)).join("")}</ul>`;
+    $("travel-body").innerHTML = html;
+    bindAdd($("travel-body"));
+  }
+
+  // ---------- Gmail rows ----------
+  const senderName = (s) => { const m = String(s || "").match(/^"?([^"<]+?)"?\s*<.+>$/); return (m ? m[1] : String(s || "").replace(/@.*/, "")).trim(); };
+  function age(dateStr) {
+    const d = new Date(dateStr), mins = Math.max(0, Math.round((now - d) / 60000));
+    if (mins < 60) return mins + "m";
+    if (mins < 1440) return Math.round(mins / 60) + "h";
+    return Math.round(mins / 1440) + "d";
+  }
+  let mailIndex = new Map();
+  const mailRow = (travel) => (th) => {
+    const m = th.messages?.[0] || {};
+    const subj = unent(m.subject || "(no subject)");
+    const from = senderName(m.sender);
+    mailIndex.set(th.id, { subj, from });
+    const canceled = /cancel/i.test(subj), confirmed = /confirm/i.test(subj);
+    const tag = travel ? (canceled ? `<span class="tag cancel">Canceled</span>` : confirmed ? `<span class="tag ok">Confirmed</span>` : "") : "";
+    return `<li><span><a class="subj" href="${esc(th.viewUrl || m.viewUrl || "#")}" target="_blank" rel="noopener">${esc(subj)}</a><span class="from">${esc(from)}</span></span><span class="side">${tag}<span class="age">${esc(age(m.date))}</span><button class="addbtn" data-add="${esc(th.id)}" aria-label="Add to to-do list" title="Add to to-do list">+</button></span></li>`;
+  };
+  function bindAdd(root) {
+    root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => {
+      const info = mailIndex.get(b.dataset.add); if (!info) return;
+      store?.add(`Reply: ${info.subj}`, `Email from ${info.from}`);
+      b.textContent = "✓"; b.disabled = true;
+    }));
+  }
+  function renderInbox(threads) {
+    if (!threads.length) { $("inbox-body").innerHTML = `<p class="note">Inbox zero for the past week. Nothing unread in Primary.</p>`; return; }
+    $("inbox-body").innerHTML = `<ul class="mail">${threads.slice(0, 10).map(mailRow(false)).join("")}</ul><p class="note" style="margin-top:8px">Tap + to turn an email into a to-do.</p>`;
+    bindAdd($("inbox-body"));
+  }
+
+  // ---------- Wire up connectors ----------
+  async function start() {
+    initTodos();
+    const mcp = await claude.use("mcp");
+    if (!mcp) {
+      const msg = `<p class="note">Open this page in Claude to load your calendar and email.</p>`;
+      $("today-body").innerHTML = msg; $("week-body").innerHTML = msg; $("travel-body").innerHTML = msg; $("inbox-body").innerHTML = msg;
+      $("next-s").textContent = "Calendar not available here"; $("trip-s").textContent = "Calendar not available here";
+      return;
+    }
+    const REFRESH = 5 * 60 * 1000;
+
+    mcp.watchTool(CAL, "list_events", {
+      startTime: localIso(today0), endTime: localIso(addDays(today0, 8)), orderBy: "startTime", pageSize: 250,
+    }, (ev) => {
+      if (ev.type === "data") {
+        const evs = (ev.result.payload?.events || []).filter((e) => e.status !== "cancelled");
+        renderToday(evs); renderWeek(evs);
+        $("cal-meta").textContent = stamp(ev.result);
+      } else {
+        const t = `<p class="note err">${esc(errText(ev.error, CAL))}</p>`;
+        if (!ev.error?.retryable) { $("today-body").innerHTML = t; $("week-body").innerHTML = t; $("next-s").textContent = "Calendar unavailable"; }
+      }
+    }, { refetchInterval: REFRESH, cache: { staleTime: 60000 } });
+
+    mcp.watchTool(CAL, "list_events", {
+      startTime: localIso(today0), endTime: localIso(addDays(today0, 180)), orderBy: "startTime", pageSize: 100, eventType: ["FROM_GMAIL"],
+    }, (ev) => {
+      if (ev.type === "data") {
+        travelErr.cal = null;
+        travelEvents = (ev.result.payload?.events || []).filter((e) => e.status !== "cancelled" && !/cancel/i.test(e.summary || ""));
+        $("travel-meta").textContent = stamp(ev.result);
+      } else if (!ev.error?.retryable) { travelErr.cal = errText(ev.error, CAL); $("trip-s").textContent = "Calendar unavailable"; }
+      renderTravel();
+    }, { refetchInterval: 15 * 60 * 1000, cache: { staleTime: 120000 } });
+
+    mcp.watchTool(GMAIL, "search_threads", {
+      query: 'newer_than:60d -category:promotions subject:(confirmation OR confirmed OR itinerary OR reservation OR trip OR canceled) (flight OR hotel OR southwest OR marriott OR airline OR rental OR booking OR airbnb)',
+      pageSize: 8,
+    }, (ev) => {
+      if (ev.type === "data") { travelErr.mail = null; travelMail = ev.result.payload?.threads || []; }
+      else if (!ev.error?.retryable) travelErr.mail = errText(ev.error, GMAIL);
+      renderTravel();
+    }, { refetchInterval: 15 * 60 * 1000, cache: { staleTime: 120000 } });
+
+    mcp.watchTool(GMAIL, "search_threads", {
+      query: "in:inbox is:unread category:primary newer_than:7d", pageSize: 10,
+    }, (ev) => {
+      if (ev.type === "data") { renderInbox(ev.result.payload?.threads || []); $("inbox-meta").textContent = stamp(ev.result); }
+      else if (!ev.error?.retryable) $("inbox-body").innerHTML = `<p class="note err">${esc(errText(ev.error, GMAIL))}</p>`;
+    }, { refetchInterval: REFRESH, cache: { staleTime: 60000 } });
+  }
+
+  renderTodos();
+  if (window.claude?.use) start();
+  else {
+    const msg = `<p class="note">Open this page in Claude to load your calendar and email.</p>`;
+    ["today-body", "week-body", "travel-body", "inbox-body"].forEach((id) => $(id).innerHTML = msg);
+    store = localStore(); renderTodos();
+  }
+})();
+</script>
