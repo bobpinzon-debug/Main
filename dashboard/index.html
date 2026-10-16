@@ -1,4 +1,4 @@
-<title>Bob's Day Board</title>
+<title>Bobby's Command Center</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -228,7 +228,7 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
 
   const now = new Date();
   const today0 = startOfDay(now);
-  $("today-label").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  $("today-label").textContent = "Bobby's Command Center · " + now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const h = now.getHours();
   $("greeting").textContent = (h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening") + ", Bobby";
 
@@ -286,7 +286,7 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
     $("top3").textContent = open.length ? open.map((t, i) => `${i + 1}. ${t.text}`).join("   ") : "Your first three open to-dos show here. Finish these and the day is a win.";
   }
   function localStore() {
-    const KEY = "dayboard.todos";
+    const KEY = "commandcenter.todos";
     try { todos = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { todos = []; }
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(todos)); } catch {} renderTodos(); };
     $("todo-meta").textContent = "Saved in this browser";
