@@ -133,6 +133,20 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 21px; letter-sp
 .tag.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .addbtn { border: 1px solid var(--line); background: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 16px; line-height: 1; }
 .addbtn:hover { border-color: var(--accent); color: var(--accent); }
+.act { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 3px 10px; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.act.arch:hover { border-color: var(--muted); background: var(--bg); }
+.act.todo { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.act.todo:hover { background: var(--accent-soft); }
+.act:disabled { opacity: .5; cursor: default; }
+.mail li.leaving { opacity: .45; }
+.mail .rowerr { display: block; font-size: 12px; color: var(--bad); }
+@media (max-width: 480px) { .mail li { grid-template-columns: 1fr; } .mail .side { justify-content: flex-end; } }
+.sweep-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.sweep-bar .note { margin: 0; }
+.bulk { border: 0; background: var(--ink); color: var(--surface); border-radius: 6px; padding: 6px 12px; font-weight: 600; font-size: 13px; cursor: pointer; }
+.bulk.confirm { background: var(--bad); color: #fff; }
+.bulk:disabled { opacity: .5; cursor: default; }
+.todos .src a { color: var(--sky); }
 
 /* To-dos */
 .progress { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -166,6 +180,7 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
       <div class="flap"><div class="k">Next up</div><div class="v" id="next-v">—</div><div class="s" id="next-s">Loading your calendar</div></div>
       <div class="flap"><div class="k">Next trip</div><div class="v" id="trip-v">—</div><div class="s" id="trip-s">Checking travel</div></div>
       <div class="flap"><div class="k">To-dos done</div><div class="v" id="todo-v">0 / 0</div><div class="s" id="todo-s">Keep moving forward</div></div>
+      <div class="flap"><div class="k">Inbox</div><div class="v" id="inbox-v">—</div><div class="s" id="inbox-s">Archived today: 0</div></div>
     </div>
   </div>
 </header>
@@ -207,6 +222,11 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
     <section aria-labelledby="h-inbox">
       <div class="sec-head"><h2 id="h-inbox">Inbox: needs you</h2><span class="meta" id="inbox-meta">Unread · Primary · 7 days</span></div>
       <div class="sec-body" id="inbox-body"><p class="note">Loading unread email…</p></div>
+    </section>
+
+    <section aria-labelledby="h-sweep">
+      <div class="sec-head"><h2 id="h-sweep">Daily sweep</h2><span class="meta" id="sweep-meta">Promos, updates &amp; social in your inbox</span></div>
+      <div class="sec-body" id="sweep-body"><p class="note">Loading…</p></div>
     </section>
   </div>
 </main>
@@ -270,7 +290,8 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
       const li = document.createElement("li");
       if (t.done) li.className = "done";
       const id = "td-" + t.id;
-      li.innerHTML = `<input type="checkbox" id="${esc(id)}" ${t.done ? "checked" : ""}><label for="${esc(id)}">${esc(t.text)}${t.src ? `<span class="src">${esc(t.src)}</span>` : ""}</label><button class="x" aria-label="Remove">×</button>`;
+      const link = t.url ? ` · <a href="${esc(t.url)}" target="_blank" rel="noopener">Open email</a>` : "";
+      li.innerHTML = `<input type="checkbox" id="${esc(id)}" ${t.done ? "checked" : ""}><label for="${esc(id)}">${esc(t.text)}${t.src || link ? `<span class="src">${esc(t.src)}${link}</span>` : ""}</label><button class="x" aria-label="Remove">×</button>`;
       li.querySelector("input").addEventListener("change", (ev) => store?.toggle(t, ev.target.checked));
       li.querySelector(".x").addEventListener("click", () => store?.remove(t));
       list.appendChild(li);
@@ -291,7 +312,7 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(todos)); } catch {} renderTodos(); };
     $("todo-meta").textContent = "Saved in this browser";
     return {
-      add(text, src) { todos.push({ id: Math.random().toString(36).slice(2), text, src: src || "", done: false, created: Date.now() }); save(); },
+      add(text, src, url) { todos.push({ id: Math.random().toString(36).slice(2), text, src: src || "", url: url || "", done: false, created: Date.now() }); save(); },
       toggle(t, v) { t.done = v; t.doneAt = v ? Date.now() : null; save(); },
       remove(t) { todos = todos.filter((x) => x !== t); save(); },
     };
@@ -312,7 +333,7 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
       }, () => { $("todo-meta").textContent = "Saved in this browser"; });
       $("todo-meta").textContent = "Synced to your account";
       store = {
-        add(text, src) { col.add({ text, src: src || "", done: false, created: Date.now() }).catch(() => {}); },
+        add(text, src, url) { col.add({ text, src: src || "", url: url || "", done: false, created: Date.now() }).catch(() => {}); },
         toggle(t, v) { col.doc(t.id).update({ done: v, doneAt: v ? Date.now() : null }).catch(() => {}); },
         remove(t) { col.doc(t.id).delete().catch(() => {}); },
       };
@@ -439,9 +460,9 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
     if (travelErr.mail) html += `<p class="note err">${esc(travelErr.mail)}</p>`;
     else if (travelMail === null) html += `<p class="note">Loading…</p>`;
     else if (!travelMail.length) html += `<p class="note">No booking emails in the last 60 days.</p>`;
-    else html += `<ul class="mail">${travelMail.slice(0, 6).map(mailRow(true)).join("")}</ul>`;
+    else html += `<ul class="mail">${travelMail.slice(0, 6).map(mailRow("travel")).join("")}</ul>`;
     $("travel-body").innerHTML = html;
-    bindAdd($("travel-body"));
+    bindActions($("travel-body"));
   }
 
   // ---------- Gmail rows ----------
@@ -453,26 +474,102 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
     return Math.round(mins / 1440) + "d";
   }
   let mailIndex = new Map();
-  const mailRow = (travel) => (th) => {
+  // mode: "travel" (+ to-do only), "inbox" (Archive + To-do), "sweep" (Archive only)
+  const mailRow = (mode) => (th) => {
     const m = th.messages?.[0] || {};
     const subj = unent(m.subject || "(no subject)");
     const from = senderName(m.sender);
-    mailIndex.set(th.id, { subj, from });
+    const url = th.viewUrl || m.viewUrl || "";
+    mailIndex.set(th.id, { subj, from, url });
     const canceled = /cancel/i.test(subj), confirmed = /confirm/i.test(subj);
-    const tag = travel ? (canceled ? `<span class="tag cancel">Canceled</span>` : confirmed ? `<span class="tag ok">Confirmed</span>` : "") : "";
-    return `<li><span><a class="subj" href="${esc(th.viewUrl || m.viewUrl || "#")}" target="_blank" rel="noopener">${esc(subj)}</a><span class="from">${esc(from)}</span></span><span class="side">${tag}<span class="age">${esc(age(m.date))}</span><button class="addbtn" data-add="${esc(th.id)}" aria-label="Add to to-do list" title="Add to to-do list">+</button></span></li>`;
+    const tag = mode === "travel" ? (canceled ? `<span class="tag cancel">Canceled</span>` : confirmed ? `<span class="tag ok">Confirmed</span>` : "") : "";
+    const id = esc(th.id);
+    const buttons = mode === "travel"
+      ? `<button class="addbtn" data-act="add" data-id="${id}" aria-label="Add to to-do list" title="Add to to-do list">+</button>`
+      : mode === "inbox"
+        ? `<button class="act arch" data-act="archive" data-id="${id}">Archive</button><button class="act todo" data-act="todo" data-id="${id}">To-do</button>`
+        : `<button class="act arch" data-act="archive" data-id="${id}">Archive</button>`;
+    return `<li data-thread="${id}"><span><a class="subj" href="${esc(url || "#")}" target="_blank" rel="noopener">${esc(subj)}</a><span class="from">${esc(from)}</span></span><span class="side">${tag}<span class="age">${esc(age(m.date))}</span>${buttons}</span></li>`;
   };
-  function bindAdd(root) {
-    root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => {
-      const info = mailIndex.get(b.dataset.add); if (!info) return;
-      store?.add(`Reply: ${info.subj}`, `Email from ${info.from}`);
-      b.textContent = "✓"; b.disabled = true;
+
+  // ---------- Archive (removes the Inbox label; the email stays in All Mail) ----------
+  let mcpRef = null;
+  const ARCH_KEY = "commandcenter.archived." + ymd(now);
+  let archivedToday = 0;
+  try { archivedToday = Number(localStorage.getItem(ARCH_KEY) || 0); } catch {}
+  const showArchived = () => { $("inbox-s").textContent = `Archived today: ${archivedToday}`; };
+  showArchived();
+  function archiveErr(err) {
+    switch (err?.code) {
+      case "approval_required": case "not_in_manifest": case "consent_required": return "Allow Gmail changes when Claude asks, then try again.";
+      case "needs_reauth": return "Reconnect Gmail in claude.ai Settings → Connectors.";
+      case "server_unavailable": case "upstream_error": return "Gmail didn't confirm. Refresh to check before trying again.";
+      default: return `Couldn't archive (${err?.code || "error"}).`;
+    }
+  }
+  async function archiveThread(id, li) {
+    if (!mcpRef) return false;
+    li?.classList.add("leaving");
+    li?.querySelectorAll("button").forEach((b) => b.disabled = true);
+    try {
+      await mcpRef.callTool(GMAIL, "unlabel_thread", { threadId: id, labelIds: ["INBOX"] });
+      li?.remove();
+      archivedToday++;
+      try { localStorage.setItem(ARCH_KEY, String(archivedToday)); } catch {}
+      showArchived();
+      return true;
+    } catch (err) {
+      li?.classList.remove("leaving");
+      li?.querySelectorAll("button").forEach((b) => b.disabled = false);
+      if (li && !li.querySelector(".rowerr")) li.firstElementChild.insertAdjacentHTML("beforeend", `<span class="rowerr">${esc(archiveErr(err))}</span>`);
+      return false;
+    }
+  }
+  const refreshGmail = () => mcpRef?.invalidate(GMAIL).catch(() => {});
+  function bindActions(root) {
+    root.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", async () => {
+      const id = b.dataset.id, info = mailIndex.get(id), li = b.closest("li");
+      if (b.dataset.act === "add") {
+        if (info) store?.add(`Reply: ${info.subj}`, `Email from ${info.from}`, info.url);
+        b.textContent = "✓"; b.disabled = true;
+      } else if (b.dataset.act === "todo") {
+        if (info) store?.add(info.subj, `Email from ${info.from}`, info.url);
+        if (await archiveThread(id, li)) refreshGmail();
+      } else if (b.dataset.act === "archive") {
+        if (await archiveThread(id, li)) refreshGmail();
+      }
     }));
   }
   function renderInbox(threads) {
     if (!threads.length) { $("inbox-body").innerHTML = `<p class="note">Inbox zero for the past week. Nothing unread in Primary.</p>`; return; }
-    $("inbox-body").innerHTML = `<ul class="mail">${threads.slice(0, 10).map(mailRow(false)).join("")}</ul><p class="note" style="margin-top:8px">Tap + to turn an email into a to-do.</p>`;
-    bindAdd($("inbox-body"));
+    $("inbox-body").innerHTML = `<ul class="mail">${threads.slice(0, 10).map(mailRow("inbox")).join("")}</ul><p class="note" style="margin-top:8px">To-do adds it to your list and clears it from the inbox. Archive just clears it. Nothing is deleted.</p>`;
+    bindActions($("inbox-body"));
+  }
+  function renderSweep(threads) {
+    const body = $("sweep-body");
+    if (!threads.length) { body.innerHTML = `<p class="note">No promos or updates left in your inbox. Sweep complete.</p>`; return; }
+    body.innerHTML = `<div class="sweep-bar"><p class="note">${threads.length} oldest-first candidates. Clear these once a day.</p><button class="bulk" id="bulk">Archive all ${threads.length}</button></div><ul class="mail">${threads.map(mailRow("sweep")).join("")}</ul>`;
+    bindActions(body);
+    const bulk = $("bulk");
+    let armed = null;
+    bulk.addEventListener("click", async () => {
+      if (!armed) {
+        bulk.classList.add("confirm"); bulk.textContent = `Tap again to archive ${body.querySelectorAll("li[data-thread]").length}`;
+        armed = setTimeout(() => { armed = null; bulk.classList.remove("confirm"); bulk.textContent = `Archive all ${body.querySelectorAll("li[data-thread]").length}`; }, 4000);
+        return;
+      }
+      clearTimeout(armed); armed = null;
+      bulk.disabled = true; bulk.classList.remove("confirm");
+      const rows = [...body.querySelectorAll("li[data-thread]")];
+      let done = 0;
+      for (const li of rows) {
+        bulk.textContent = `Archiving ${done + 1} of ${rows.length}…`;
+        if (await archiveThread(li.dataset.thread, li)) done++;
+        else break;
+      }
+      bulk.textContent = `Archived ${done}`;
+      refreshGmail();
+    });
   }
 
   // ---------- Wire up connectors ----------
@@ -481,11 +578,25 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
     const mcp = await claude.use("mcp");
     if (!mcp) {
       const msg = `<p class="note">Open this page in Claude to load your calendar and email.</p>`;
-      $("today-body").innerHTML = msg; $("week-body").innerHTML = msg; $("travel-body").innerHTML = msg; $("inbox-body").innerHTML = msg;
+      $("today-body").innerHTML = msg; $("week-body").innerHTML = msg; $("travel-body").innerHTML = msg; $("inbox-body").innerHTML = msg; $("sweep-body").innerHTML = msg;
       $("next-s").textContent = "Calendar not available here"; $("trip-s").textContent = "Calendar not available here";
       return;
     }
     const REFRESH = 5 * 60 * 1000;
+    mcpRef = mcp;
+
+    mcp.watchTool(GMAIL, "search_threads", {
+      query: "in:inbox -category:primary -is:starred -is:important older_than:2d", pageSize: 20,
+    }, (ev) => {
+      if (ev.type === "data") { renderSweep(ev.result.payload?.threads || []); $("sweep-meta").textContent = stamp(ev.result); }
+      else if (!ev.error?.retryable) $("sweep-body").innerHTML = `<p class="note err">${esc(errText(ev.error, GMAIL))}</p>`;
+    }, { refetchInterval: 15 * 60 * 1000, cache: { staleTime: 60000 } });
+
+    mcp.watchTool(GMAIL, "list_labels", null, (ev) => {
+      if (ev.type !== "data") return;
+      const inbox = (ev.result.payload?.labels || []).find((l) => l.labelId === "INBOX");
+      if (inbox) $("inbox-v").textContent = `${Number(inbox.threadsTotal || 0).toLocaleString()} threads`;
+    }, { refetchInterval: 15 * 60 * 1000, cache: { staleTime: 60000 } });
 
     mcp.watchTool(CAL, "list_events", {
       startTime: localIso(today0), endTime: localIso(addDays(today0, 8)), orderBy: "startTime", pageSize: 250,
@@ -532,7 +643,7 @@ form.add button { border: 0; background: var(--accent); color: #fff; border-radi
   if (window.claude?.use) start();
   else {
     const msg = `<p class="note">Open this page in Claude to load your calendar and email.</p>`;
-    ["today-body", "week-body", "travel-body", "inbox-body"].forEach((id) => $(id).innerHTML = msg);
+    ["today-body", "week-body", "travel-body", "inbox-body", "sweep-body"].forEach((id) => $(id).innerHTML = msg);
     store = localStore(); renderTodos();
   }
 })();
